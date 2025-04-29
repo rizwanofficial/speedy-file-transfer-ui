@@ -1,0 +1,7 @@
+
+export interface FileWithProgress {
+  file: File;
+  progress: number;
+  status: 'pending' | 'uploading' | 'completed' | 'error';
+  id: string;
+}
