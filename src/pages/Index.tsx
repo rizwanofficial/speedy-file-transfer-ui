@@ -1,14 +1,12 @@
-
 import { useState, useRef, DragEvent } from "react";
-import { Upload, File, X, CheckCircle, AlertCircle, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import FileUploader from "@/components/FileUploader";
 import FileList from "@/components/FileList";
 import { FileWithProgress, UploadSettings } from "@/types/file";
-import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 const Index = () => {
   const [files, setFiles] = useState<FileWithProgress[]>([]);
@@ -17,6 +15,7 @@ const Index = () => {
     path: "/Volumes/VDS_TST/ExpressLane/VodAssetIngest/",
     permissions: "777"
   });
+  const [apiUrl, setApiUrl] = useState<string>("http://localhost:3001/api/upload");
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleFileSelection = (selectedFiles: FileList | null) => {
@@ -53,52 +52,62 @@ const Index = () => {
       // Create FormData
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('path', settings.path);
-      formData.append('permissions', settings.permissions);
       
-      // Simulate upload with progress
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += Math.random() * 10;
-        if (progress > 100) {
-          clearInterval(interval);
-          progress = 100;
-        }
-        
-        // Update the state with the new progress
-        setFiles(prev => 
-          prev.map(f => 
-            f.id === id 
-              ? { ...f, progress } 
-              : f
-          )
-        );
-        
-        if (progress === 100) {
-          // In a real implementation, we would wait for the actual server response here
-          setTimeout(() => {
-            setFiles(prev => 
-              prev.map(f => 
-                f.id === id 
-                  ? { ...f, status: 'completed' } 
-                  : f
-              )
-            );
-            
-            toast.success(`${file.name} uploaded to ${settings.path} with chmod ${settings.permissions} permissions`);
-          }, 500);
-        }
-      }, 300);
+      // Build URL with query parameters for path and permissions
+      const url = new URL(apiUrl);
+      url.searchParams.append('path', settings.path);
+      url.searchParams.append('permissions', settings.permissions);
       
-      // In a real implementation, we would do:
-      // const response = await fetch('/api/upload', {
-      //   method: 'POST',
-      //   body: formData,
-      // });
-      // 
-      // if (!response.ok) {
-      //   throw new Error(`Upload failed: ${response.statusText}`);
-      // }
+      // Track upload progress with XMLHttpRequest
+      const xhr = new XMLHttpRequest();
+      
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          
+          // Update the state with the new progress
+          setFiles(prev => 
+            prev.map(f => 
+              f.id === id 
+                ? { ...f, progress } 
+                : f
+            )
+          );
+        }
+      });
+      
+      // Create a promise to handle the XHR request
+      const uploadPromise = new Promise<void>((resolve, reject) => {
+        xhr.onload = function() {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`HTTP error ${xhr.status}: ${xhr.statusText}`));
+          }
+        };
+        
+        xhr.onerror = function() {
+          reject(new Error('Network error occurred'));
+        };
+      });
+      
+      // Open and send the request
+      xhr.open("POST", url.toString());
+      xhr.send(formData);
+      
+      // Wait for the upload to complete
+      await uploadPromise;
+      
+      // Update state to completed
+      setFiles(prev => 
+        prev.map(f => 
+          f.id === id 
+            ? { ...f, status: 'completed', progress: 100 } 
+            : f
+        )
+      );
+      
+      toast.success(`${file.name} uploaded to ${settings.path} with chmod ${settings.permissions} permissions`);
       
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -137,11 +146,15 @@ const Index = () => {
     fileInputRef.current?.click();
   };
   
-  const handleSettingsChange = (key: keyof UploadSettings, value: string) => {
-    setUploadSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
+  const handleSettingsChange = (key: keyof UploadSettings | 'apiUrl', value: string) => {
+    if (key === 'apiUrl') {
+      setApiUrl(value);
+    } else {
+      setUploadSettings(prev => ({
+        ...prev,
+        [key]: value
+      }));
+    }
   };
   
   return (
@@ -163,6 +176,14 @@ const Index = () => {
                 <SheetTitle>Upload Settings</SheetTitle>
               </SheetHeader>
               <div className="mt-6 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">API Endpoint</label>
+                  <Input
+                    value={apiUrl}
+                    onChange={(e) => handleSettingsChange('apiUrl', e.target.value)}
+                    placeholder="http://localhost:3001/api/upload"
+                  />
+                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Upload Path</label>
                   <Input
