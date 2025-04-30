@@ -1,16 +1,22 @@
 
 import { useState, useRef, DragEvent } from "react";
-import { Upload, File, X, CheckCircle, AlertCircle } from "lucide-react";
+import { Upload, File, X, CheckCircle, AlertCircle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import FileUploader from "@/components/FileUploader";
 import FileList from "@/components/FileList";
-import { FileWithProgress } from "@/types/file";
+import { FileWithProgress, UploadSettings } from "@/types/file";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 const Index = () => {
   const [files, setFiles] = useState<FileWithProgress[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadSettings, setUploadSettings] = useState<UploadSettings>({
+    path: "/Volumes/VDS_TST/ExpressLane/VodAssetIngest/",
+    permissions: "777"
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleFileSelection = (selectedFiles: FileList | null) => {
@@ -27,45 +33,84 @@ const Index = () => {
     
     // Process each file
     newFiles.forEach(fileObj => {
-      uploadFile(fileObj);
+      uploadFile(fileObj, uploadSettings);
     });
   };
   
-  const uploadFile = async (fileObj: FileWithProgress) => {
+  const uploadFile = async (fileObj: FileWithProgress, settings: UploadSettings) => {
     const { file, id } = fileObj;
     
-    // Simulate an upload process with progress
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 10;
-      if (progress > 100) progress = 100;
+    // Update status to uploading
+    setFiles(prev => 
+      prev.map(f => 
+        f.id === id 
+          ? { ...f, status: 'uploading' } 
+          : f
+      )
+    );
+    
+    try {
+      // Create FormData
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('path', settings.path);
+      formData.append('permissions', settings.permissions);
       
-      // Update the state with the new progress
+      // Simulate upload with progress
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.random() * 10;
+        if (progress > 100) {
+          clearInterval(interval);
+          progress = 100;
+        }
+        
+        // Update the state with the new progress
+        setFiles(prev => 
+          prev.map(f => 
+            f.id === id 
+              ? { ...f, progress } 
+              : f
+          )
+        );
+        
+        if (progress === 100) {
+          // In a real implementation, we would wait for the actual server response here
+          setTimeout(() => {
+            setFiles(prev => 
+              prev.map(f => 
+                f.id === id 
+                  ? { ...f, status: 'completed' } 
+                  : f
+              )
+            );
+            
+            toast.success(`${file.name} uploaded to ${settings.path} with chmod ${settings.permissions} permissions`);
+          }, 500);
+        }
+      }, 300);
+      
+      // In a real implementation, we would do:
+      // const response = await fetch('/api/upload', {
+      //   method: 'POST',
+      //   body: formData,
+      // });
+      // 
+      // if (!response.ok) {
+      //   throw new Error(`Upload failed: ${response.statusText}`);
+      // }
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
       setFiles(prev => 
         prev.map(f => 
           f.id === id 
-            ? { ...f, progress } 
+            ? { ...f, status: 'error', errorMessage: errorMsg, progress: 100 } 
             : f
         )
       );
-      
-      if (progress === 100) {
-        clearInterval(interval);
-        
-        // Simulate successful upload - in a real app this would be a server response
-        setTimeout(() => {
-          setFiles(prev => 
-            prev.map(f => 
-              f.id === id 
-                ? { ...f, status: 'completed' } 
-                : f
-            )
-          );
-          
-          toast.success(`${file.name} uploaded successfully with chmod 777 permissions`);
-        }, 500);
-      }
-    }, 300);
+      toast.error(`Failed to upload ${file.name}: ${errorMsg}`);
+    }
   };
   
   const removeFile = (id: string) => {
@@ -92,14 +137,54 @@ const Index = () => {
     fileInputRef.current?.click();
   };
   
+  const handleSettingsChange = (key: keyof UploadSettings, value: string) => {
+    setUploadSettings(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+  
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold text-center text-blue-700 mb-2">
-          File Upload Tool
-        </h1>
+        <div className="flex justify-between items-center mb-2">
+          <h1 className="text-3xl md:text-4xl font-bold text-blue-700">
+            File Upload Tool
+          </h1>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center gap-1">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>Upload Settings</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Upload Path</label>
+                  <Input
+                    value={uploadSettings.path}
+                    onChange={(e) => handleSettingsChange('path', e.target.value)}
+                    placeholder="Enter destination path"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">File Permissions</label>
+                  <Input
+                    value={uploadSettings.permissions}
+                    onChange={(e) => handleSettingsChange('permissions', e.target.value)}
+                    placeholder="File permissions (e.g. 777)"
+                  />
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
         <p className="text-gray-600 text-center mb-8">
-          Upload multiple files to /Volumes/VDS_TST/ExpressLane/VodAssetIngest/ with chmod 777 permissions
+          Upload multiple files to <span className="font-mono bg-gray-100 px-1 rounded">{uploadSettings.path}</span> with chmod {uploadSettings.permissions} permissions
         </p>
         
         <FileUploader

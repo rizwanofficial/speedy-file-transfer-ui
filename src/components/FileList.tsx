@@ -12,7 +12,7 @@ const FileList = ({ files, onRemove }: FileListProps) => {
   return (
     <ul className="space-y-3">
       {files.map((fileObj) => {
-        const { file, progress, status, id } = fileObj;
+        const { file, progress, status, id, errorMessage } = fileObj;
         
         return (
           <li 
@@ -56,7 +56,11 @@ const FileList = ({ files, onRemove }: FileListProps) => {
                   ) : status === 'error' ? (
                     <>
                       <AlertCircle className="h-3 w-3 text-red-600 mr-1" />
-                      <span className="text-xs text-red-600">Error</span>
+                      <span className="text-xs text-red-600" title={errorMessage}>
+                        Error: {errorMessage && errorMessage.length > 20 
+                          ? errorMessage.substring(0, 20) + '...' 
+                          : errorMessage || 'Upload failed'}
+                      </span>
                     </>
                   ) : (
                     <span className="text-xs text-blue-600">
