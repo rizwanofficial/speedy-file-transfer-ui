@@ -7,13 +7,16 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import FileUploader from "@/components/FileUploader";
 import FileList from "@/components/FileList";
 import { FileWithProgress, UploadSettings } from "@/types/file";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   const [files, setFiles] = useState<FileWithProgress[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadSettings, setUploadSettings] = useState<UploadSettings>({
     path: "/Volumes/VDS_TST/ExpressLane/VodAssetIngest/",
-    permissions: "777"
+    permissions: "777",
+    sourcePath: "/mnt/source/files/",
+    destinationPath: "/Volumes/VDS_TST/ExpressLane/VodAssetIngest/"
   });
   const [apiUrl, setApiUrl] = useState<string>("http://localhost:3001/api/upload");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,10 +56,12 @@ const Index = () => {
       const formData = new FormData();
       formData.append('file', file);
       
-      // Build URL with query parameters for path and permissions
+      // Build URL with query parameters for path, sourcePath, destinationPath, and permissions
       const url = new URL(apiUrl);
       url.searchParams.append('path', settings.path);
       url.searchParams.append('permissions', settings.permissions);
+      url.searchParams.append('sourcePath', settings.sourcePath);
+      url.searchParams.append('destinationPath', settings.destinationPath);
       
       // Track upload progress with XMLHttpRequest
       const xhr = new XMLHttpRequest();
@@ -107,7 +112,7 @@ const Index = () => {
         )
       );
       
-      toast.success(`${file.name} uploaded to ${settings.path} with chmod ${settings.permissions} permissions`);
+      toast.success(`${file.name} uploaded from ${settings.sourcePath} to ${settings.destinationPath} with chmod ${settings.permissions} permissions`);
       
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -164,48 +169,71 @@ const Index = () => {
           <h1 className="text-3xl md:text-4xl font-bold text-blue-700">
             File Upload Tool
           </h1>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="flex items-center gap-1">
-                <Settings className="h-4 w-4" />
-                Settings
+          <div className="flex items-center space-x-2">
+            <Link to="/dashboard">
+              <Button variant="outline" size="sm">
+                Dashboard
               </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>Upload Settings</SheetTitle>
-              </SheetHeader>
-              <div className="mt-6 space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">API Endpoint</label>
-                  <Input
-                    value={apiUrl}
-                    onChange={(e) => handleSettingsChange('apiUrl', e.target.value)}
-                    placeholder="http://localhost:3001/api/upload"
-                  />
+            </Link>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="flex items-center gap-1">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Upload Settings</SheetTitle>
+                </SheetHeader>
+                <div className="mt-6 space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">API Endpoint</label>
+                    <Input
+                      value={apiUrl}
+                      onChange={(e) => handleSettingsChange('apiUrl', e.target.value)}
+                      placeholder="http://localhost:3001/api/upload"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Source Path</label>
+                    <Input
+                      value={uploadSettings.sourcePath}
+                      onChange={(e) => handleSettingsChange('sourcePath', e.target.value)}
+                      placeholder="Enter source path"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Destination Path</label>
+                    <Input
+                      value={uploadSettings.destinationPath}
+                      onChange={(e) => handleSettingsChange('destinationPath', e.target.value)}
+                      placeholder="Enter destination path"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Upload Path (Legacy)</label>
+                    <Input
+                      value={uploadSettings.path}
+                      onChange={(e) => handleSettingsChange('path', e.target.value)}
+                      placeholder="Enter destination path"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">File Permissions</label>
+                    <Input
+                      value={uploadSettings.permissions}
+                      onChange={(e) => handleSettingsChange('permissions', e.target.value)}
+                      placeholder="File permissions (e.g. 777)"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Upload Path</label>
-                  <Input
-                    value={uploadSettings.path}
-                    onChange={(e) => handleSettingsChange('path', e.target.value)}
-                    placeholder="Enter destination path"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">File Permissions</label>
-                  <Input
-                    value={uploadSettings.permissions}
-                    onChange={(e) => handleSettingsChange('permissions', e.target.value)}
-                    placeholder="File permissions (e.g. 777)"
-                  />
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
         <p className="text-gray-600 text-center mb-8">
-          Upload multiple files to <span className="font-mono bg-gray-100 px-1 rounded">{uploadSettings.path}</span> with chmod {uploadSettings.permissions} permissions
+          Upload multiple files from <span className="font-mono bg-gray-100 px-1 rounded">{uploadSettings.sourcePath}</span> to <span className="font-mono bg-gray-100 px-1 rounded">{uploadSettings.destinationPath}</span> with chmod {uploadSettings.permissions} permissions
         </p>
         
         <FileUploader

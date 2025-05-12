@@ -10,4 +10,6 @@ export interface FileWithProgress {
 export interface UploadSettings {
   path: string;
   permissions: string;
+  sourcePath: string;
+  destinationPath: string;
 }
