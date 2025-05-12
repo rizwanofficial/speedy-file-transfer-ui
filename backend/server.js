@@ -20,7 +20,7 @@ const ensureDirectoryExists = (directory) => {
 // Configure multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = req.query.destinationPath || req.query.path || '/tmp/uploads';
+    const uploadPath = req.body.path || '/tmp/uploads';
     ensureDirectoryExists(uploadPath);
     cb(null, uploadPath);
   },
@@ -34,15 +34,14 @@ const upload = multer({ storage });
 // Handle file upload endpoint
 app.post('/api/upload', (req, res) => {
   // We need to handle the path parameter before multer processes the file
-  const sourcePath = req.query.sourcePath || '';
-  const destinationPath = req.query.destinationPath || req.query.path || '/tmp/uploads';
+  const uploadPath = req.query.path || '/tmp/uploads';
   const permissions = req.query.permissions || '644';
   
   // Create custom multer instance for this specific request
   const customStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-      ensureDirectoryExists(destinationPath);
-      cb(null, destinationPath);
+      ensureDirectoryExists(uploadPath);
+      cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
       cb(null, file.originalname);
@@ -63,7 +62,7 @@ app.post('/api/upload', (req, res) => {
     
     // Set file permissions if specified
     try {
-      const filePath = path.join(destinationPath, req.file.originalname);
+      const filePath = path.join(uploadPath, req.file.originalname);
       fs.chmodSync(filePath, parseInt(permissions, 8));
       
       return res.status(200).json({
@@ -71,8 +70,7 @@ app.post('/api/upload', (req, res) => {
         file: {
           name: req.file.originalname,
           size: req.file.size,
-          sourcePath,
-          destinationPath,
+          path: filePath,
           permissions
         }
       });
