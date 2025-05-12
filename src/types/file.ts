@@ -13,3 +13,24 @@ export interface UploadSettings {
   sourcePath: string;
   destinationPath: string;
 }
+
+export interface Job {
+  name: string;
+  url: string;
+  successUrl: string;
+}
+
+export interface JobBuild {
+  number?: number;
+  status?: string;
+  timestamp?: number;
+  result?: string;
+  url?: string;
+}
+
+export interface JobData {
+  [key: string]: {
+    lastBuild: JobBuild;
+    lastSuccessfulBuild: JobBuild | null;
+  };
+}
